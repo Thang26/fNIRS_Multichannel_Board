@@ -240,6 +240,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 1 */
 
