@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdint.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,12 +31,52 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SAMPLE_COUNT 40U
+#define NUM_TASKS 2U
+#define NUM_BUFFERS 2U
+
+#define NO_TRANSMISSION_IN_PROGRESS 255U
+
+#define BUFFER_EMPTY 0U
+#define BUFFER_FULL 1U
+
+#define SAMPLING_INACTIVE 0U
+#define SAMPLING_ACTIVE 1U
+
+/* LED Source Macros */
+#define LED_735_S1 1U
+#define LED_850_S1 2U
+#define LED_735_S2 3U
+#define LED_850_S2 4U
+#define LED_735_S3 5U
+#define LED_850_S3 6U
+#define LED_735_S4 7U
+#define LED_850_S4 8U
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+/* This is what we send over UART to the PC. */
+typedef struct {
+	uint32_t uniqueHeader;
+	uint16_t adcSamples[SAMPLE_COUNT];
+	uint32_t uniqueEnder;	//The future vision here is a checksum.
+} DataPacket_t;
 
+/* This is an object that is being passed around. It mimics OOP but in C instead. */
+typedef struct {
+	DataPacket_t dataPacket;
+	volatile uint8_t bufferFullFlag;
+} DataBuffer_t;
+
+/* This holds info about the specific configurations needed for a particular sample collection event. */
+typedef struct {
+    uint8_t led_source;        // e.g., LED_735_S1
+    char mux_select;           // 'a' or 'b' for MUXA or MUXB
+    uint8_t mux_input_value;   // 0 to 5
+    uint32_t compare_value;    // 50μs or 100μs
+} SamplingSequence_t;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -49,6 +89,112 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart4;
 
 /* USER CODE BEGIN PV */
+/**
+ * @brief This index is used to iterate through the buffer storing ADC samples.
+ */
+volatile uint8_t adcSampleIndex = 0;
+
+/**
+ * @brief This index is used to denote which buffer (0 or 1) is being filled by the ADC.
+ * This is used by dataBuffers array to switch between which buffer is being referred to.
+ */
+volatile uint8_t bufferNumIndex = 0;
+
+/**
+ * @brief This is a flag that allows TIMER3 to do its job of collecting ADC data or switching buffer.
+ * This flag is lowered once 40 ADC samples have been collected, effectively rendering
+ * TIMER3 idle until the next 10ms sampling interval. This flag approach is a bandaid method
+ * since you cannot disable TIMER3 (200us) and start it again within the IRQ handler of TIMER2 (10ms).
+ */
+volatile uint8_t samplingActive = SAMPLING_ACTIVE;
+
+/**
+ * @brief This flag indicates whether a UART transmission is in progress or not.
+ */
+uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
+
+/**
+ * @brief This instantiates two buffers to be ping-ponged for time efficiency.
+ */
+DataBuffer_t dataBuffers[NUM_BUFFERS];
+
+/**
+ * @brief Timer variables, used in initialization and output compare period calculations.
+ */
+#define F_CLK 175000000UL
+#define TIM2_PSC 1749U
+#define TIM3_PSC 69U
+
+/**
+ * @brief Long separation output compare period;
+ * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
+ * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
+ */
+#define LONG_OC_PRD 180U                                                        //USER-DEFINED (in microseconds)
+#define LONG_OC_PULSE ((LONG_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))    //CALCULATED, DO NOT TOUCH!
+
+/**
+ * @brief Short separation output compare period;
+ * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
+ * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
+ */
+#define SHORT_OC_PRD 90U                                                        //USER-DEFINED (in microseconds)
+#define SHORT_OC_PULSE ((SHORT_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))  //CALCULATED, DO NOT TOUCH!
+
+SamplingSequence_t sequence[] = {
+    // For LED_735_S1
+    {LED_735_S1, 'a', 0, LONG_OC_PULSE},
+    {LED_735_S1, 'a', 1, LONG_OC_PULSE},
+    {LED_735_S1, 'a', 2, SHORT_OC_PULSE},
+    {LED_735_S1, 'a', 4, LONG_OC_PULSE},
+    {LED_735_S1, 'a', 5, LONG_OC_PULSE},
+    // For LED_850_S1
+    {LED_850_S1, 'a', 0, LONG_OC_PULSE},
+    {LED_850_S1, 'a', 1, LONG_OC_PULSE},
+    {LED_850_S1, 'a', 2, SHORT_OC_PULSE},
+    {LED_850_S1, 'a', 4, LONG_OC_PULSE},
+    {LED_850_S1, 'a', 5, LONG_OC_PULSE},
+    // For LED_735_S2
+    {LED_735_S2, 'a', 2, LONG_OC_PULSE},
+    {LED_735_S2, 'a', 3, LONG_OC_PULSE},
+    {LED_735_S2, 'a', 4, SHORT_OC_PULSE},
+    {LED_735_S2, 'b', 0, LONG_OC_PULSE},
+    {LED_735_S2, 'b', 1, LONG_OC_PULSE},
+    // For LED_850_S2
+    {LED_850_S2, 'a', 2, LONG_OC_PULSE},
+    {LED_850_S2, 'a', 3, LONG_OC_PULSE},
+    {LED_850_S2, 'a', 4, SHORT_OC_PULSE},
+    {LED_850_S2, 'b', 0, LONG_OC_PULSE},
+    {LED_850_S2, 'b', 1, LONG_OC_PULSE},
+    // For LED_735_S3
+    {LED_735_S3, 'a', 4, LONG_OC_PULSE},
+    {LED_735_S3, 'a', 5, LONG_OC_PULSE},
+    {LED_735_S3, 'b', 0, SHORT_OC_PULSE},
+    {LED_735_S3, 'b', 2, LONG_OC_PULSE},
+    {LED_735_S3, 'b', 3, LONG_OC_PULSE},
+    // For LED_850_S3
+    {LED_850_S3, 'a', 4, LONG_OC_PULSE},
+    {LED_850_S3, 'a', 5, LONG_OC_PULSE},
+    {LED_850_S3, 'b', 0, SHORT_OC_PULSE},
+    {LED_850_S3, 'b', 2, LONG_OC_PULSE},
+    {LED_850_S3, 'b', 3, LONG_OC_PULSE},
+    // For LED_735_S4
+    {LED_735_S4, 'b', 0, LONG_OC_PULSE},
+    {LED_735_S4, 'b', 1, LONG_OC_PULSE},
+    {LED_735_S4, 'b', 2, SHORT_OC_PULSE},
+    {LED_735_S4, 'b', 4, LONG_OC_PULSE},
+    {LED_735_S4, 'b', 5, LONG_OC_PULSE},
+    // For LED_850_S4
+    {LED_850_S4, 'b', 0, LONG_OC_PULSE},
+    {LED_850_S4, 'b', 1, LONG_OC_PULSE},
+    {LED_850_S4, 'b', 2, SHORT_OC_PULSE},
+    {LED_850_S4, 'b', 4, LONG_OC_PULSE},
+    {LED_850_S4, 'b', 5, LONG_OC_PULSE}
+};
+
+#define SEQUENCE_LENGTH (sizeof(sequence) / sizeof(SamplingSequence_t))
+
+volatile SamplingSequence_t current_sequence;
 
 /* USER CODE END PV */
 
@@ -62,11 +208,27 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC2_Init(void);
 /* USER CODE BEGIN PFP */
-
+void UpdateSequenceState(void);
+void SetMuxInputs(char mux_select, uint8_t value);
+void Check_Buffer_Full_Task(void);
+void Buffers_Overflow_Error_Task(void);
+void SetTIAHigh(char mux_select);
+void SetTIALow(void);
+void TurnOnLED(uint8_t led_source);
+void TurnOffAllLEDs(void);
+void StartADCConversion(char mux_select);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/**
+ * @brief Task Array for Round-Robin Scheduler
+ */
+void (*TaskArray[NUM_TASKS])(void) = 
+{
+	Check_Buffer_Full_Task,
+	Buffers_Overflow_Error_Task
+};
 
 /* USER CODE END 0 */
 
@@ -108,6 +270,31 @@ int main(void)
   MX_TIM3_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
+  /* Initializes the two buffer objects with data. */
+	for (uint8_t i = 0; i < NUM_BUFFERS; i++)
+	{
+		dataBuffers[i].dataPacket.uniqueHeader = 0xFFFFFFFF;
+		dataBuffers[i].dataPacket.uniqueEnder = 0xDEADBEEF;
+		dataBuffers[i].bufferFullFlag = BUFFER_EMPTY;
+	}
+
+  /* Initializes the first sequence to kick things off. */
+  UpdateSequenceState();
+
+  /* Kicks off 10ms timer, 200us timer, and Compare Capture */
+	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
+	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
+	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
+
+  /* Drives MUX Enable HIGH to start receiving input changes. */
+  HAL_GPIO_WritePin(MUX_ENABLE_GPIO_Port, MUX_ENABLE_Pin, GPIO_PIN_SET);
+
+  /* Selects the sensor and starts charging the TIA for the first 200us interval. */
+  SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
+  SetTIAHigh(current_sequence.mux_select);
+
+  // Round-Robin Scheduler Variables
+  uint8_t currentTask = 0;
 
   /* USER CODE END 2 */
 
@@ -115,6 +302,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    // Call the current task
+		TaskArray[currentTask]();
+
+		// Move to the next task
+		currentTask = (currentTask + 1) % NUM_TASKS;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -337,6 +529,8 @@ static void MX_ADC2_Init(void)
 
 /**
   * @brief TIM2 Initialization Function
+  * TIM2 is on APB1 bus matrix. Refer to page 139 of STM32H723ZG ref. manual
+  * Timer Period = (Prescaler + 1) * (ARR + 1) / f_clk (Hz)
   * @param None
   * @retval None
   */
@@ -354,7 +548,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 1749;
+  htim2.Init.Prescaler = TIM2_PSC;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -382,6 +576,9 @@ static void MX_TIM2_Init(void)
 
 /**
   * @brief TIM3 Initialization Function
+  * TIM3 is on APB1 bus matrix. Refer to page 139 of STM32H723ZG ref. manual
+  * Timer Period = (Prescaler + 1) * (ARR + 1) / f_clk (Hz)
+  * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
   * @param None
   * @retval None
   */
@@ -400,7 +597,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 69;
+  htim3.Init.Prescaler = TIM3_PSC;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 499;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -425,7 +622,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 450;
+  sConfigOC.Pulse = LONG_OC_PRD;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -555,6 +752,316 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief Updates the current_sequence object to contain values for the
+  * configurations for the next data sample collection event.
+  * @param None
+  * @retval None
+  */
+void UpdateSequenceState(void)
+{
+  static uint8_t index = 0;
+
+  /* Load the next sequence step */
+  current_sequence = sequence[index];
+
+  /* Update the timer's compare value */
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, current_sequence.compare_value);
+
+  /* Increment index for next update */
+  index = (index + 1) % SEQUENCE_LENGTH;
+}
+
+/**
+  * @brief Takes the number defined in the current sequence entry
+  * and toggles MUX GPIO inputs accordingly.
+  * @param mux_select denoting MUXA or MUXB.
+  * @param value denoting 0 - 5 for sensor number.
+  * @retval None
+  */
+void SetMuxInputs(char mux_select, uint8_t value)
+{
+  uint8_t bit0 = (value >> 0) & 0x01; // LSB
+  uint8_t bit1 = (value >> 1) & 0x01;
+  uint8_t bit2 = (value >> 2) & 0x01;
+
+  if (mux_select == 'a')
+  {
+    HAL_GPIO_WritePin(MUXA_S0_GPIO_Port, MUXA_S0_Pin, bit0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(MUXA_S1_GPIO_Port, MUXA_S1_Pin, bit1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(MUXA_S2_GPIO_Port, MUXA_S2_Pin, bit2 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  }
+  else if (mux_select == 'b')
+  {
+    HAL_GPIO_WritePin(MUXB_S0_GPIO_Port, MUXB_S0_Pin, bit0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(MUXB_S1_GPIO_Port, MUXB_S1_Pin, bit1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(MUXB_S2_GPIO_Port, MUXB_S2_Pin, bit2 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  }
+  else
+  {
+    return; //Error code
+  }
+}
+
+/**
+  * @brief Toggles TIA to HIGH. Which TIA is chosen to
+  * toggle depends on whether it is MUXA or MUXB.
+  * @param mux_select denoting MUXA or MUXB.
+  * @retval None
+  */
+void SetTIAHigh(char mux_select)
+{
+  if (mux_select == 'a')
+  {
+    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+  }
+  else if (mux_select == 'b')
+  {
+    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
+  }
+}
+
+/**
+  * @brief Toggles all TIA GPIOs to LOW.
+  * @param None
+  * @retval None
+  */
+void SetTIALow(void)
+{
+  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
+}
+
+/**
+  * @brief Toggles specified LED to HIGH.
+  * @param led_source Source specified by the sequence.
+  * @retval None
+  */
+void TurnOnLED(uint8_t led_source)
+{
+  switch (led_source)
+  {
+    case LED_735_S1:
+      HAL_GPIO_WritePin(LED_735_S1_GPIO_Port, LED_735_S1_Pin, GPIO_PIN_SET);
+      break;
+    case LED_850_S1:
+      HAL_GPIO_WritePin(LED_850_S1_GPIO_Port, LED_850_S1_Pin, GPIO_PIN_SET);
+      break;
+    case LED_735_S2:
+      HAL_GPIO_WritePin(LED_735_S2_GPIO_Port, LED_735_S2_Pin, GPIO_PIN_SET);
+      break;
+    case LED_850_S2:
+      HAL_GPIO_WritePin(LED_850_S2_GPIO_Port, LED_850_S2_Pin, GPIO_PIN_SET);
+      break;
+    case LED_735_S3:
+      HAL_GPIO_WritePin(LED_735_S3_GPIO_Port, LED_735_S3_Pin, GPIO_PIN_SET);
+      break;
+    case LED_850_S3:
+      HAL_GPIO_WritePin(LED_850_S3_GPIO_Port, LED_850_S3_Pin, GPIO_PIN_SET);
+      break;
+    case LED_735_S4:
+      HAL_GPIO_WritePin(LED_735_S4_GPIO_Port, LED_735_S4_Pin, GPIO_PIN_SET);
+      break;
+    case LED_850_S4:
+      HAL_GPIO_WritePin(LED_850_S4_GPIO_Port, LED_850_S4_Pin, GPIO_PIN_SET);
+      break;
+    default:
+      /* Handle invalid led_source */
+      break;
+  }
+}
+
+/**
+  * @brief Toggles all LEDs to LOW.
+  * @param None
+  * @retval None
+  */
+void TurnOffAllLEDs(void)
+{
+  HAL_GPIO_WritePin(LED_735_S1_GPIO_Port, LED_735_S1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_850_S1_GPIO_Port, LED_850_S1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_735_S2_GPIO_Port, LED_735_S2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_850_S2_GPIO_Port, LED_850_S2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_735_S3_GPIO_Port, LED_735_S3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_850_S3_GPIO_Port, LED_850_S3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_735_S4_GPIO_Port, LED_735_S4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_850_S4_GPIO_Port, LED_850_S4_Pin, GPIO_PIN_RESET);
+}
+
+/**
+  * @brief Select corresponding ADC and trigger sample conversion.
+  * @param mux_select denoting MUXA (tied to ADC1) or MUXB (tied to ADC2).
+  * @retval None
+  */
+void StartADCConversion(char mux_select)
+{
+  if (mux_select == 'a')
+  {
+    HAL_ADC_Start_IT(&hadc1);
+  }
+  else if (mux_select == 'b')
+  {
+    HAL_ADC_Start_IT(&hadc2);
+  }
+}
+
+/**
+  * @brief Checks if either data buffer has flag raised indicating their buffer is full.
+  * If full, transmits the buffer over UART.
+  * @param None
+  * @retval None
+  */
+void Check_Buffer_Full_Task(void)
+{
+  // Iterate over the buffers to check if any buffer is full and not being transmitted
+  for (uint8_t i = 0; i < NUM_BUFFERS; i++)
+  {
+    if ((dataBuffers[i].bufferFullFlag == BUFFER_FULL) && (transmittingBuffer == NO_TRANSMISSION_IN_PROGRESS))
+    {
+      // Start UART transmission
+      transmittingBuffer = i;
+      HAL_UART_Transmit_IT(&huart4, (uint8_t*)&dataBuffers[i].dataPacket, sizeof(DataPacket_t));
+      
+      dataBuffers[i].bufferFullFlag = BUFFER_EMPTY; // Reset the buffer full flag
+      
+      break; // Only handle one buffer at a time
+    }
+  }
+}
+
+/**
+  * @brief Callback function upon UART transmission completion.
+  * Resets transmission flag so other buffers can be transmitted.
+  */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  // Transmission is complete, resets flag to allow other transmissions to proceed.
+  transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS;
+}
+
+/**
+ * @brief IRQ handler callback function for when the timers have overflown.
+ * For 10ms overflown event:
+ * 1) Sets sampling active flag to begin the 40x ADC sampling cycle again.
+ * 2) Selects the channel via MUX.
+ * 3) Start charging the TIA for the first 200us cycle.
+ * 
+ * For 200us overflown event:
+ * 1) Selects the channel via MUX.
+ * 2) Start charging the TIA for the next 200us cycle.
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* Code to execute every 10 ms (TIM2) */
+	if (htim->Instance == TIM2)
+	{
+		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+
+    /* Set MUX inputs based on current_sequence */
+    SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
+
+    /* Start charging the TIA. */
+    SetTIAHigh(current_sequence.mux_select);
+
+		// Raises the flag for TIMER3 (200us) to start doing its job again.
+		samplingActive = SAMPLING_ACTIVE;
+	}
+  /* Code to execute every 200 µs (TIM3) */
+	else if (htim->Instance == TIM3)
+	{
+		if (samplingActive == SAMPLING_ACTIVE)
+		{
+			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+
+      /* Set MUX inputs based on current_sequence */
+      SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
+
+      /* Start charging the TIA. */
+      SetTIAHigh(current_sequence.mux_select);
+		}
+	}
+}
+
+/**
+ * @brief Output compare event callback function. This is used
+ * to trigger the ADC conversion mid of 200us interval.
+ */
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM3)
+  {
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    {
+			if (samplingActive == SAMPLING_ACTIVE)
+			{
+        /* Turn on the LED specified in current sequence */
+        TurnOnLED(current_sequence.led_source);
+
+        /* Start ADC conversion based on mux select */
+        StartADCConversion(current_sequence.mux_select);
+			}
+    }
+  }
+}
+
+/**
+ * @brief TODO write something about this function
+ */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if((hadc->Instance == ADC1) || (hadc->Instance == ADC2))
+	{
+		// Processes the ADC conversion result
+		uint16_t adcValue = HAL_ADC_GetValue(hadc);
+
+		// Stores ADC value in the current buffer
+		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
+
+    // Increments adcSampleIndex after storing the value.
+    adcSampleIndex++;
+
+    // Resets the TIA & turns off LED.
+    SetTIALow();
+    TurnOffAllLEDs();
+
+    // Check if buffer is full.
+    if (adcSampleIndex >= SAMPLE_COUNT)
+    {
+      __disable_irq();
+
+      // Buffer is full
+      dataBuffers[bufferNumIndex].bufferFullFlag = BUFFER_FULL; // Set buffer full flag.
+      adcSampleIndex = 0;                                       // Reset sample index.
+
+      // Switch to the next buffer.
+      bufferNumIndex = (bufferNumIndex + 1) % NUM_BUFFERS;
+
+			// Sampling is complete.
+      samplingActive = SAMPLING_INACTIVE;
+
+      __enable_irq();
+		}
+
+    /* Updates the sequence to the next entry for the next interval. */
+    UpdateSequenceState();
+	}
+}
+
+/**
+ * @brief Flags an error exception when both buffers are detected to be full.
+ * The implication is that the UART transmission speed is inadequate for data consumption.
+ */
+void Buffers_Overflow_Error_Task(void)
+{
+	if(dataBuffers[0].bufferFullFlag == BUFFER_FULL && dataBuffers[1].bufferFullFlag == BUFFER_FULL)
+	{
+		__disable_irq();
+		//TODO: Probably disable TIMERx, and ADC here.
+		while (1)
+		{
+		}
+	}
+}
 
 /* USER CODE END 4 */
 
