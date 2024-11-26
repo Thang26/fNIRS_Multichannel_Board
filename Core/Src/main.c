@@ -801,6 +801,7 @@ void SetMuxInputs(char mux_select, uint8_t value)
   }
   else
   {
+    Error_Handler();
     return; //Error code
   }
 }
@@ -821,6 +822,7 @@ void SetTIAHigh(char mux_select)
   {
     HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
   }
+  else{Error_Handler();}
 }
 
 /**
@@ -869,6 +871,7 @@ void TurnOnLED(uint8_t led_source)
       break;
     default:
       /* Handle invalid led_source */
+      Error_Handler();
       break;
   }
 }
@@ -1022,8 +1025,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     {
       dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
     }
-		
-    else{ HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET); while(1){} }
+		else{ Error_Handler(); }
 
     // Increments adcSampleIndex after storing the value.
     adcSampleIndex++;
@@ -1082,6 +1084,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
   __disable_irq();
   while (1)
   {
