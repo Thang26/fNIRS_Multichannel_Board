@@ -240,6 +240,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  /* MCU LED active indicates no errors and everything is functional. */
   HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 1 */
@@ -1017,7 +1018,12 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
 
 		// Stores ADC value in the current buffer
-		dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
+    if (dataBuffers[bufferNumIndex].bufferFullFlag == BUFFER_EMPTY)
+    {
+      dataBuffers[bufferNumIndex].dataPacket.adcSamples[adcSampleIndex] = adcValue;
+    }
+		
+    else{ HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET); while(1){} }
 
     // Increments adcSampleIndex after storing the value.
     adcSampleIndex++;
@@ -1058,6 +1064,7 @@ void Buffers_Overflow_Error_Task(void)
 	if(dataBuffers[0].bufferFullFlag == BUFFER_FULL && dataBuffers[1].bufferFullFlag == BUFFER_FULL)
 	{
 		__disable_irq();
+    HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
 		//TODO: Probably disable TIMERx, and ADC here.
 		while (1)
 		{
