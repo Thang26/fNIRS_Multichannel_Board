@@ -111,7 +111,7 @@ volatile uint8_t samplingActive = SAMPLING_ACTIVE;
 /**
  * @brief This flag indicates whether a UART transmission is in progress or not.
  */
-uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
+volatile uint8_t transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS; // Invalid index to indicate no transmission in progress
 
 /**
  * @brief This instantiates two buffers to be ping-ponged for time efficiency.
@@ -281,17 +281,17 @@ int main(void)
   /* Initializes the first sequence to kick things off. */
   UpdateSequenceState();
 
-  /* Kicks off 10ms timer, 200us timer, and Compare Capture */
-	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
-	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
-	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
-
-  /* Drives MUX Enable HIGH to start receiving input changes. */
-  HAL_GPIO_WritePin(MUX_ENABLE_GPIO_Port, MUX_ENABLE_Pin, GPIO_PIN_SET);
+  /* Drives MUX Enable LOW to start receiving input changes. (Inverse logic) */
+  HAL_GPIO_WritePin(MUX_ENABLE_GPIO_Port, MUX_ENABLE_Pin, GPIO_PIN_RESET);
 
   /* Selects the sensor and starts charging the TIA for the first 200us interval. */
   SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
   SetTIAHigh(current_sequence.mux_select);
+
+  /* Kicks off 10ms timer, 200us timer, and Compare Capture */
+	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
+	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
+	if (HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1) != HAL_OK){ Error_Handler(); }
 
   // Round-Robin Scheduler Variables
   uint8_t currentTask = 0;
@@ -918,11 +918,9 @@ void Check_Buffer_Full_Task(void)
   {
     if ((dataBuffers[i].bufferFullFlag == BUFFER_FULL) && (transmittingBuffer == NO_TRANSMISSION_IN_PROGRESS))
     {
-      // Start UART transmission
+      // Stores the index of the buffer being transmitted so we can refer to it to clear its flag in UART transmit complete callback.
       transmittingBuffer = i;
       HAL_UART_Transmit_IT(&huart4, (uint8_t*)&dataBuffers[i].dataPacket, sizeof(DataPacket_t));
-      
-      dataBuffers[i].bufferFullFlag = BUFFER_EMPTY; // Reset the buffer full flag
       
       break; // Only handle one buffer at a time
     }
@@ -936,6 +934,7 @@ void Check_Buffer_Full_Task(void)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   // Transmission is complete, resets flag to allow other transmissions to proceed.
+  dataBuffers[transmittingBuffer].bufferFullFlag = BUFFER_EMPTY; // Reset the buffer full flag
   transmittingBuffer = NO_TRANSMISSION_IN_PROGRESS;
 }
 
@@ -1005,7 +1004,9 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 }
 
 /**
- * @brief TODO write something about this function
+ * @brief Callback function for a complete ADC sample conversion.
+ * Stores the ADC sample in the data buffer, and switches the data buffer
+ * if all 40 samples have been collected and the buffer is full.
  */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
