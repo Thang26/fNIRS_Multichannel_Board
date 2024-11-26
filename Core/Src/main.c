@@ -272,6 +272,7 @@ int main(void)
   MX_TIM3_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
+  SetTIALow();
   /* Initializes the two buffer objects with data. */
 	for (uint8_t i = 0; i < NUM_BUFFERS; i++)
 	{
@@ -816,11 +817,11 @@ void SetTIAHigh(char mux_select)
 {
   if (mux_select == 'a')
   {
-    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
   }
   else if (mux_select == 'b')
   {
-    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
   }
   else{Error_Handler();}
 }
@@ -832,8 +833,8 @@ void SetTIAHigh(char mux_select)
   */
 void SetTIALow(void)
 {
-  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
 }
 
 /**
