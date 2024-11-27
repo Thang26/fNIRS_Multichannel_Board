@@ -263,7 +263,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   /* MCU LED active indicates no errors and everything is functional. */
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 1 */
 
@@ -296,7 +296,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   SetTIALow();
   HAL_Delay(10);  //Allows TIA to fully discharge.
-  
+
   /* Initializes the two buffer objects with data. */
 	for (uint8_t i = 0; i < NUM_BUFFERS; i++)
 	{
@@ -313,6 +313,7 @@ int main(void)
 
   /* Selects the sensor and starts charging the TIA for the first 200us interval. */
   SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
+  TurnOnLED(current_sequence.led_source);
   SetTIAHigh(current_sequence.mux_select);
 
   /* Kicks off 10ms timer, 200us timer, and Compare Capture */
@@ -746,7 +747,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = MUX_ENABLE_Pin|MUXB_S1_Pin|MUXB_S2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MUXB_S0_Pin MUXA_S2_Pin MUXA_S1_Pin MUXA_S0_Pin
@@ -757,21 +758,21 @@ static void MX_GPIO_Init(void)
                           |MCU_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_735_S3_Pin LED_850_S2_Pin LED_735_S2_Pin TIA_RST_A_Pin */
   GPIO_InitStruct.Pin = LED_735_S3_Pin|LED_850_S2_Pin|LED_735_S2_Pin|TIA_RST_A_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_850_S1_Pin LED_735_S1_Pin */
   GPIO_InitStruct.Pin = LED_850_S1_Pin|LED_735_S1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -839,13 +840,15 @@ void SetMuxInputs(char mux_select, uint8_t mux_input_value)
   */
 void SetTIAHigh(char mux_select)
 {
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
+  
   if (mux_select == MUX_A)
   {
-    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
   }
   else if (mux_select == MUX_B)
   {
-    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
   }
   else{Error_Handler();}
 }
@@ -857,8 +860,9 @@ void SetTIAHigh(char mux_select)
   */
 void SetTIALow(void)
 {
-  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
 }
 
 /**
@@ -1005,6 +1009,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
       /* Set MUX inputs based on current_sequence */
       SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
 
+      /* Turn on the LED specified in current sequence */
+      TurnOnLED(current_sequence.led_source);
+
       /* Start charging the TIA. */
       SetTIAHigh(current_sequence.mux_select);
 		}
@@ -1023,9 +1030,6 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
     {
 			if (samplingActive == SAMPLING_ACTIVE)
 			{
-        /* Turn on the LED specified in current sequence */
-        TurnOnLED(current_sequence.led_source);
-
         /* Start ADC conversion based on mux select */
         StartADCConversion(current_sequence.mux_select);
 			}
