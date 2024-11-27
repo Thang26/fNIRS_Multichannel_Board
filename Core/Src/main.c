@@ -53,6 +53,17 @@
 #define LED_735_S4 7U
 #define LED_850_S4 8U
 
+/* MUX Macros */
+#define MUX_A 'a'
+#define MUX_B 'b'
+
+#define DETECTOR_0 0U
+#define DETECTOR_1 1U
+#define DETECTOR_2 2U
+#define DETECTOR_3 3U
+#define DETECTOR_4 4U
+#define DETECTOR_5 5U
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -141,7 +152,7 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
  * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
  * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
  */
-#define LONG_OC_PRD 180U                                                        //USER-DEFINED (in microseconds)
+#define LONG_OC_PRD 180U                                                        //USER-DEFINED, desired compare period (in microseconds)
 #define LONG_OC_PULSE ((LONG_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))    //CALCULATED, DO NOT TOUCH!
 
 /**
@@ -149,58 +160,58 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
  * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
  * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
  */
-#define SHORT_OC_PRD 90U                                                        //USER-DEFINED (in microseconds)
+#define SHORT_OC_PRD 90U                                                        //USER-DEFINED, desired compare period (in microseconds)
 #define SHORT_OC_PULSE ((SHORT_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))  //CALCULATED, DO NOT TOUCH!
 
 SamplingSequence_t sequence[] = {
     // For LED_735_S1
-    {LED_735_S1, 'a', 0, LONG_OC_PULSE},
-    {LED_735_S1, 'a', 1, LONG_OC_PULSE},
-    {LED_735_S1, 'a', 2, SHORT_OC_PULSE},
-    {LED_735_S1, 'a', 4, LONG_OC_PULSE},
-    {LED_735_S1, 'a', 5, LONG_OC_PULSE},
+    {LED_735_S1, MUX_A, DETECTOR_0, LONG_OC_PULSE},
+    {LED_735_S1, MUX_A, DETECTOR_1, LONG_OC_PULSE},
+    {LED_735_S1, MUX_A, DETECTOR_2, SHORT_OC_PULSE},
+    {LED_735_S1, MUX_A, DETECTOR_4, LONG_OC_PULSE},
+    {LED_735_S1, MUX_A, DETECTOR_5, LONG_OC_PULSE},
     // For LED_850_S1
-    {LED_850_S1, 'a', 0, LONG_OC_PULSE},
-    {LED_850_S1, 'a', 1, LONG_OC_PULSE},
-    {LED_850_S1, 'a', 2, SHORT_OC_PULSE},
-    {LED_850_S1, 'a', 4, LONG_OC_PULSE},
-    {LED_850_S1, 'a', 5, LONG_OC_PULSE},
+    {LED_850_S1, MUX_A, DETECTOR_0, LONG_OC_PULSE},
+    {LED_850_S1, MUX_A, DETECTOR_1, LONG_OC_PULSE},
+    {LED_850_S1, MUX_A, DETECTOR_2, SHORT_OC_PULSE},
+    {LED_850_S1, MUX_A, DETECTOR_4, LONG_OC_PULSE},
+    {LED_850_S1, MUX_A, DETECTOR_5, LONG_OC_PULSE},
     // For LED_735_S2
-    {LED_735_S2, 'a', 2, LONG_OC_PULSE},
-    {LED_735_S2, 'a', 3, LONG_OC_PULSE},
-    {LED_735_S2, 'a', 4, SHORT_OC_PULSE},
-    {LED_735_S2, 'b', 0, LONG_OC_PULSE},
-    {LED_735_S2, 'b', 1, LONG_OC_PULSE},
+    {LED_735_S2, MUX_A, DETECTOR_2, LONG_OC_PULSE},
+    {LED_735_S2, MUX_A, DETECTOR_3, LONG_OC_PULSE},
+    {LED_735_S2, MUX_A, DETECTOR_4, SHORT_OC_PULSE},
+    {LED_735_S2, MUX_B, DETECTOR_0, LONG_OC_PULSE},
+    {LED_735_S2, MUX_B, DETECTOR_1, LONG_OC_PULSE},
     // For LED_850_S2
-    {LED_850_S2, 'a', 2, LONG_OC_PULSE},
-    {LED_850_S2, 'a', 3, LONG_OC_PULSE},
-    {LED_850_S2, 'a', 4, SHORT_OC_PULSE},
-    {LED_850_S2, 'b', 0, LONG_OC_PULSE},
-    {LED_850_S2, 'b', 1, LONG_OC_PULSE},
+    {LED_850_S2, MUX_A, DETECTOR_2, LONG_OC_PULSE},
+    {LED_850_S2, MUX_A, DETECTOR_3, LONG_OC_PULSE},
+    {LED_850_S2, MUX_A, DETECTOR_4, SHORT_OC_PULSE},
+    {LED_850_S2, MUX_B, DETECTOR_0, LONG_OC_PULSE},
+    {LED_850_S2, MUX_B, DETECTOR_1, LONG_OC_PULSE},
     // For LED_735_S3
-    {LED_735_S3, 'a', 4, LONG_OC_PULSE},
-    {LED_735_S3, 'a', 5, LONG_OC_PULSE},
-    {LED_735_S3, 'b', 0, SHORT_OC_PULSE},
-    {LED_735_S3, 'b', 2, LONG_OC_PULSE},
-    {LED_735_S3, 'b', 3, LONG_OC_PULSE},
+    {LED_735_S3, MUX_A, DETECTOR_4, LONG_OC_PULSE},
+    {LED_735_S3, MUX_A, DETECTOR_5, LONG_OC_PULSE},
+    {LED_735_S3, MUX_B, DETECTOR_0, SHORT_OC_PULSE},
+    {LED_735_S3, MUX_B, DETECTOR_2, LONG_OC_PULSE},
+    {LED_735_S3, MUX_B, DETECTOR_3, LONG_OC_PULSE},
     // For LED_850_S3
-    {LED_850_S3, 'a', 4, LONG_OC_PULSE},
-    {LED_850_S3, 'a', 5, LONG_OC_PULSE},
-    {LED_850_S3, 'b', 0, SHORT_OC_PULSE},
-    {LED_850_S3, 'b', 2, LONG_OC_PULSE},
-    {LED_850_S3, 'b', 3, LONG_OC_PULSE},
+    {LED_850_S3, MUX_A, DETECTOR_4, LONG_OC_PULSE},
+    {LED_850_S3, MUX_A, DETECTOR_5, LONG_OC_PULSE},
+    {LED_850_S3, MUX_B, DETECTOR_0, SHORT_OC_PULSE},
+    {LED_850_S3, MUX_B, DETECTOR_2, LONG_OC_PULSE},
+    {LED_850_S3, MUX_B, DETECTOR_3, LONG_OC_PULSE},
     // For LED_735_S4
-    {LED_735_S4, 'b', 0, LONG_OC_PULSE},
-    {LED_735_S4, 'b', 1, LONG_OC_PULSE},
-    {LED_735_S4, 'b', 2, SHORT_OC_PULSE},
-    {LED_735_S4, 'b', 4, LONG_OC_PULSE},
-    {LED_735_S4, 'b', 5, LONG_OC_PULSE},
+    {LED_735_S4, MUX_B, DETECTOR_0, LONG_OC_PULSE},
+    {LED_735_S4, MUX_B, DETECTOR_1, LONG_OC_PULSE},
+    {LED_735_S4, MUX_B, DETECTOR_2, SHORT_OC_PULSE},
+    {LED_735_S4, MUX_B, DETECTOR_4, LONG_OC_PULSE},
+    {LED_735_S4, MUX_B, DETECTOR_5, LONG_OC_PULSE},
     // For LED_850_S4
-    {LED_850_S4, 'b', 0, LONG_OC_PULSE},
-    {LED_850_S4, 'b', 1, LONG_OC_PULSE},
-    {LED_850_S4, 'b', 2, SHORT_OC_PULSE},
-    {LED_850_S4, 'b', 4, LONG_OC_PULSE},
-    {LED_850_S4, 'b', 5, LONG_OC_PULSE}
+    {LED_850_S4, MUX_B, DETECTOR_0, LONG_OC_PULSE},
+    {LED_850_S4, MUX_B, DETECTOR_1, LONG_OC_PULSE},
+    {LED_850_S4, MUX_B, DETECTOR_2, SHORT_OC_PULSE},
+    {LED_850_S4, MUX_B, DETECTOR_4, LONG_OC_PULSE},
+    {LED_850_S4, MUX_B, DETECTOR_5, LONG_OC_PULSE}
 };
 
 #define SEQUENCE_LENGTH (sizeof(sequence) / sizeof(SamplingSequence_t))
@@ -220,7 +231,7 @@ static void MX_TIM3_Init(void);
 static void MX_ADC2_Init(void);
 /* USER CODE BEGIN PFP */
 void UpdateSequenceState(void);
-void SetMuxInputs(char mux_select, uint8_t value);
+void SetMuxInputs(char mux_select, uint8_t mux_input_value);
 void Check_Buffer_Full_Task(void);
 void Buffers_Overflow_Error_Task(void);
 void SetTIAHigh(char mux_select);
@@ -284,6 +295,8 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   SetTIALow();
+  HAL_Delay(10);  //Allows TIA to fully discharge.
+  
   /* Initializes the two buffer objects with data. */
 	for (uint8_t i = 0; i < NUM_BUFFERS; i++)
 	{
@@ -790,22 +803,22 @@ void UpdateSequenceState(void)
   * @brief Takes the number defined in the current sequence entry
   * and toggles MUX GPIO inputs accordingly.
   * @param mux_select denoting MUXA or MUXB.
-  * @param value denoting 0 - 5 for sensor number.
+  * @param mux_input_value denoting 0 - 5 for sensor number.
   * @retval None
   */
-void SetMuxInputs(char mux_select, uint8_t value)
+void SetMuxInputs(char mux_select, uint8_t mux_input_value)
 {
-  uint8_t bit0 = (value >> 0) & 0x01; // LSB
-  uint8_t bit1 = (value >> 1) & 0x01;
-  uint8_t bit2 = (value >> 2) & 0x01;
+  uint8_t bit0 = (mux_input_value >> 0) & 0x01; // LSB
+  uint8_t bit1 = (mux_input_value >> 1) & 0x01;
+  uint8_t bit2 = (mux_input_value >> 2) & 0x01;
 
-  if (mux_select == 'a')
+  if (mux_select == MUX_A)
   {
     HAL_GPIO_WritePin(MUXA_S0_GPIO_Port, MUXA_S0_Pin, bit0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(MUXA_S1_GPIO_Port, MUXA_S1_Pin, bit1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(MUXA_S2_GPIO_Port, MUXA_S2_Pin, bit2 ? GPIO_PIN_SET : GPIO_PIN_RESET);
   }
-  else if (mux_select == 'b')
+  else if (mux_select == MUX_B)
   {
     HAL_GPIO_WritePin(MUXB_S0_GPIO_Port, MUXB_S0_Pin, bit0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(MUXB_S1_GPIO_Port, MUXB_S1_Pin, bit1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
@@ -826,11 +839,11 @@ void SetMuxInputs(char mux_select, uint8_t value)
   */
 void SetTIAHigh(char mux_select)
 {
-  if (mux_select == 'a')
+  if (mux_select == MUX_A)
   {
     HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
   }
-  else if (mux_select == 'b')
+  else if (mux_select == MUX_B)
   {
     HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
   }
@@ -912,11 +925,11 @@ void TurnOffAllLEDs(void)
   */
 void StartADCConversion(char mux_select)
 {
-  if (mux_select == 'a')
+  if (mux_select == MUX_A)
   {
     HAL_ADC_Start_IT(&hadc1);
   }
-  else if (mux_select == 'b')
+  else if (mux_select == MUX_B)
   {
     HAL_ADC_Start_IT(&hadc2);
   }
