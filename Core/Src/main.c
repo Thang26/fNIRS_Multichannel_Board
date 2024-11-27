@@ -295,7 +295,7 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   SetTIALow();
-  HAL_Delay(10);  //Allows TIA to fully discharge.
+  HAL_Delay(10);  //Ensures TIA is fully discharged.
 
   /* Initializes the two buffer objects with data. */
 	for (uint8_t i = 0; i < NUM_BUFFERS; i++)
@@ -839,9 +839,7 @@ void SetMuxInputs(char mux_select, uint8_t mux_input_value)
   * @retval None
   */
 void SetTIAHigh(char mux_select)
-{
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
-  
+{ 
   if (mux_select == MUX_A)
   {
     HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
@@ -860,7 +858,6 @@ void SetTIAHigh(char mux_select)
   */
 void SetTIALow(void)
 {
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
 }
@@ -1005,6 +1002,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		if (samplingActive == SAMPLING_ACTIVE)
 		{
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+
+      HAL_GPIO_TogglePin(MCU_LED_GPIO_Port, MCU_LED_Pin);
 
       /* Set MUX inputs based on current_sequence */
       SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
