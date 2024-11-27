@@ -120,10 +120,21 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
 
 /**
  * @brief Timer variables, used in initialization and output compare period calculations.
+ * TIM3 & TIM2 are on APB1 bus matrix. Refer to page 139 of STM32H723ZG ref. manual
+ * Timer Period = (Prescaler + 1) * (ARR + 1) / f_clk (Hz)
  */
 #define F_CLK 175000000UL
 #define TIM2_PSC 1749U
+#define TIM2_ARR 1999U
 #define TIM3_PSC 69U
+#define TIM3_ARR 999U
+
+/* Old 10ms and 200us configurations.
+#define TIM2_PSC 1749U
+#define TIM2_ARR 999U
+#define TIM3_PSC 69U
+#define TIM3_ARR 499U
+*/
 
 /**
  * @brief Long separation output compare period;
@@ -553,7 +564,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = TIM2_PSC;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 999;
+  htim2.Init.Period = TIM2_ARR;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -602,7 +613,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = TIM3_PSC;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 499;
+  htim3.Init.Period = TIM3_ARR;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
