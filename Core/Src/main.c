@@ -997,10 +997,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
     /* Reset TIM3 counter */
-    // __HAL_TIM_SET_COUNTER(&htim3, 0);
+    __HAL_TIM_SET_COUNTER(&htim3, 0);
 
     /* Set MUX inputs based on current_sequence */
     SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
+
+    /* Turn on the LED specified in current sequence */
+    TurnOnLED(current_sequence.led_source);
 
     /* Start charging the TIA. */
     SetTIAHigh(current_sequence.mux_select);
