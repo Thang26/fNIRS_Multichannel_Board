@@ -153,7 +153,7 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
  * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
  */
 #define LONG_OC_PRD 180U                                                        //USER-DEFINED, desired compare period (in microseconds)
-#define LONG_OC_PULSE ((LONG_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))    //CALCULATED, DO NOT TOUCH!
+#define LONG_OC_PULSE (((uint64_t)LONG_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))    //CALCULATED, DO NOT TOUCH!
 
 /**
  * @brief Short separation output compare period;
@@ -161,7 +161,7 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
  * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
  */
 #define SHORT_OC_PRD 90U                                                        //USER-DEFINED, desired compare period (in microseconds)
-#define SHORT_OC_PULSE ((SHORT_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))  //CALCULATED, DO NOT TOUCH!
+#define SHORT_OC_PULSE (((uint64_t)SHORT_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))  //CALCULATED, DO NOT TOUCH!
 
 SamplingSequence_t sequence[] = {
     // For LED_735_S1
@@ -317,8 +317,8 @@ int main(void)
   SetTIAHigh(current_sequence.mux_select);
 
   /* Reset TIM2 and TIM3 counter */
-  // __HAL_TIM_SET_COUNTER(&htim3, 0);
-  // __HAL_TIM_SET_COUNTER(&htim2, 0);
+  __HAL_TIM_SET_COUNTER(&htim3, 0);
+  __HAL_TIM_SET_COUNTER(&htim2, 0);
 
   /* Kicks off 10ms timer, 200us timer, and Compare Capture */
 	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
@@ -849,13 +849,14 @@ void SetTIAHigh(char mux_select)
 { 
   if (mux_select == MUX_A)
   {
-    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
   }
   else if (mux_select == MUX_B)
   {
-    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
   }
   else{Error_Handler();}
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
 }
 
 /**
@@ -865,8 +866,9 @@ void SetTIAHigh(char mux_select)
   */
 void SetTIALow(void)
 {
-  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 }
 
 /**
@@ -1013,8 +1015,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		if (samplingActive == SAMPLING_ACTIVE)
 		{
-      HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
-
       /* Set MUX inputs based on current_sequence */
       SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
 
@@ -1055,7 +1055,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if((hadc->Instance == ADC1) || (hadc->Instance == ADC2))
 	{
-    HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
 		// Processes the ADC conversion result
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
 
