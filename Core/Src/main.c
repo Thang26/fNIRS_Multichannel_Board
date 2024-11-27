@@ -999,11 +999,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* Code to execute every 200 µs (TIM3) */
 	else if (htim->Instance == TIM3)
 	{
+    HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 		if (samplingActive == SAMPLING_ACTIVE)
 		{
 			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
-
-      HAL_GPIO_TogglePin(MCU_LED_GPIO_Port, MCU_LED_Pin);
 
       /* Set MUX inputs based on current_sequence */
       SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
@@ -1045,6 +1044,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if((hadc->Instance == ADC1) || (hadc->Instance == ADC2))
 	{
+    HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
 		// Processes the ADC conversion result
 		uint16_t adcValue = HAL_ADC_GetValue(hadc);
 
