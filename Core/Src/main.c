@@ -316,6 +316,10 @@ int main(void)
   TurnOnLED(current_sequence.led_source);
   SetTIAHigh(current_sequence.mux_select);
 
+  /* Reset TIM2 and TIM3 counter */
+  // __HAL_TIM_SET_COUNTER(&htim3, 0);
+  // __HAL_TIM_SET_COUNTER(&htim2, 0);
+
   /* Kicks off 10ms timer, 200us timer, and Compare Capture */
 	if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){ Error_Handler(); }
 	if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){ Error_Handler(); }
@@ -650,7 +654,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = LONG_OC_PRD;
+  sConfigOC.Pulse = LONG_OC_PULSE;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -795,6 +799,9 @@ void UpdateSequenceState(void)
 
   /* Update the timer's compare value */
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, current_sequence.compare_value);
+
+  uint32_t debug_value = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
+  if (debug_value != current_sequence.compare_value){ Error_Handler(); }
 
   /* Increment index for next update */
   index = (index + 1) % SEQUENCE_LENGTH;
@@ -987,6 +994,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 
+    /* Reset TIM3 counter */
+    // __HAL_TIM_SET_COUNTER(&htim3, 0);
+
     /* Set MUX inputs based on current_sequence */
     SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
 
@@ -999,10 +1009,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* Code to execute every 200 µs (TIM3) */
 	else if (htim->Instance == TIM3)
 	{
-    HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
+    __HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+
 		if (samplingActive == SAMPLING_ACTIVE)
 		{
-			__HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+      HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 
       /* Set MUX inputs based on current_sequence */
       SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
