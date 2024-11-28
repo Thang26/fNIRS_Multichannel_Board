@@ -153,7 +153,7 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
  * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
  * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
  */
-#define LONG_OC_PRD 180U                                                        //USER-DEFINED, desired compare period (in microseconds)
+#define LONG_OC_PRD 300U                                                        //USER-DEFINED, desired compare period (in microseconds)
 #define LONG_OC_PULSE (((uint64_t)LONG_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))    //CALCULATED, DO NOT TOUCH!
 
 /**
@@ -161,7 +161,7 @@ DataBuffer_t dataBuffers[NUM_BUFFERS];
  * OC Match Time = (Prescaler + 1) * OC.Pulse / f_clk (Hz)
  * OC is tied to TIM3, which is APB1 bus matrix (f_clk = 175MHz)
  */
-#define SHORT_OC_PRD 90U                                                        //USER-DEFINED, desired compare period (in microseconds)
+#define SHORT_OC_PRD 150U                                                        //USER-DEFINED, desired compare period (in microseconds)
 #define SHORT_OC_PULSE (((uint64_t)SHORT_OC_PRD * F_CLK) / ((TIM3_PSC + 1) * 1000000UL))  //CALCULATED, DO NOT TOUCH!
 
 SamplingSequence_t sequence[] = {
@@ -825,7 +825,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = TIA_RST_B_Pin|LED_850_S4_Pin|LED_735_S4_Pin|LED_850_S3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_735_S3_Pin LED_850_S2_Pin LED_735_S2_Pin TIA_RST_A_Pin */
@@ -912,7 +912,7 @@ void SetTIAHigh(char mux_select)
     HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
   }
   else{Error_Handler();}
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 }
 
 /**
@@ -924,7 +924,7 @@ void SetTIALow(void)
 {
   HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
 }
 
 /**
