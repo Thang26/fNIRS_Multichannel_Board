@@ -665,7 +665,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
-
+  __HAL_TIM_ENABLE_OCxPRELOAD(&htim3, TIM_CHANNEL_1);
   /* USER CODE END TIM3_Init 2 */
 
 }
@@ -1054,7 +1054,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     /* Reset TIM3 counter */
     __HAL_TIM_SET_COUNTER(&htim3, 0);
-
+    
     /* Set MUX inputs based on current_sequence */
     SetMuxInputs(current_sequence.mux_select, current_sequence.mux_input_value);
 
