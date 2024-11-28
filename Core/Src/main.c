@@ -98,6 +98,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart4;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 /**
@@ -229,6 +230,7 @@ static void MX_UART4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC2_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void UpdateSequenceState(void);
 void SetMuxInputs(char mux_select, uint8_t mux_input_value);
@@ -293,6 +295,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_ADC2_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   SetTIALow();
   HAL_Delay(10);  //Ensures TIA is fully discharged.
@@ -716,6 +719,54 @@ static void MX_UART4_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -734,18 +785,25 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, LED_850_S1_Pin|LED_735_S1_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, MUX_ENABLE_Pin|MUXB_S1_Pin|MUXB_S2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, MUXB_S0_Pin|MUXA_S2_Pin|MUXA_S1_Pin|MUXA_S0_Pin
-                          |TIA_RST_B_Pin|LED_850_S4_Pin|LED_735_S4_Pin|LED_850_S3_Pin
-                          |MCU_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, MUXA_S0_Pin|TIA_RST_B_Pin|LED_850_S4_Pin|LED_735_S4_Pin
+                          |LED_850_S3_Pin|MUXB_S0_Pin|MCU_LED_Pin|MUXA_S2_Pin
+                          |MUXA_S1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, LED_735_S3_Pin|LED_850_S2_Pin|LED_735_S2_Pin|TIA_RST_A_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_850_S1_Pin|LED_735_S1_Pin, GPIO_PIN_RESET);
+  /*Configure GPIO pins : LED_850_S1_Pin LED_735_S1_Pin */
+  GPIO_InitStruct.Pin = LED_850_S1_Pin|LED_735_S1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MUX_ENABLE_Pin MUXB_S1_Pin MUXB_S2_Pin */
   GPIO_InitStruct.Pin = MUX_ENABLE_Pin|MUXB_S1_Pin|MUXB_S2_Pin;
@@ -754,15 +812,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : MUXB_S0_Pin MUXA_S2_Pin MUXA_S1_Pin MUXA_S0_Pin
-                           TIA_RST_B_Pin LED_850_S4_Pin LED_735_S4_Pin LED_850_S3_Pin
-                           MCU_LED_Pin */
-  GPIO_InitStruct.Pin = MUXB_S0_Pin|MUXA_S2_Pin|MUXA_S1_Pin|MUXA_S0_Pin
-                          |TIA_RST_B_Pin|LED_850_S4_Pin|LED_735_S4_Pin|LED_850_S3_Pin
-                          |MCU_LED_Pin;
+  /*Configure GPIO pins : MUXA_S0_Pin MUXB_S0_Pin MCU_LED_Pin MUXA_S2_Pin
+                           MUXA_S1_Pin */
+  GPIO_InitStruct.Pin = MUXA_S0_Pin|MUXB_S0_Pin|MCU_LED_Pin|MUXA_S2_Pin
+                          |MUXA_S1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : TIA_RST_B_Pin LED_850_S4_Pin LED_735_S4_Pin LED_850_S3_Pin */
+  GPIO_InitStruct.Pin = TIA_RST_B_Pin|LED_850_S4_Pin|LED_735_S4_Pin|LED_850_S3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_735_S3_Pin LED_850_S2_Pin LED_735_S2_Pin TIA_RST_A_Pin */
@@ -771,13 +834,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LED_850_S1_Pin LED_735_S1_Pin */
-  GPIO_InitStruct.Pin = LED_850_S1_Pin|LED_735_S1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
