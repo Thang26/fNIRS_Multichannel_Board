@@ -862,7 +862,7 @@ void SetTIAHigh(char mux_select)
     HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_RESET);
   }
   else{Error_Handler();}
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
 }
 
 /**
@@ -874,7 +874,7 @@ void SetTIALow(void)
 {
   HAL_GPIO_WritePin(TIA_RST_A_GPIO_Port, TIA_RST_A_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(TIA_RST_B_GPIO_Port, TIA_RST_B_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(MCU_LED_GPIO_Port, MCU_LED_Pin, GPIO_PIN_RESET);
 }
 
 /**
