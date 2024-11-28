@@ -662,6 +662,12 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
+  /**
+  * @brief IMPORTANT! Preload ENABLE ensures that a compare period update won't take effect
+  * until the next timer cycle. This prevents the error where let's say a 90us compare period
+  * updates the compare period to 180us. Then when the timer reaches 180us, it activates again,
+  * which is something we do not want. We want a singular compare period event per timer interval.
+  */
   __HAL_TIM_ENABLE_OCxPRELOAD(&htim3, TIM_CHANNEL_1);
   /* USER CODE END TIM3_Init 2 */
 
